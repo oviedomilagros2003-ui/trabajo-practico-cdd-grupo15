@@ -1,0 +1,634 @@
+# ==============================================================================
+# Script 03: Inferencia Estadística, Regresión y Análisis Avanzado
+# Tema: Educación, tercerización y trabajo no remunerado (ENUT 2021, INDEC)
+# ==============================================================================
+
+# 1. Configuración de opciones globales, semillas y librerías
+options(scipen = 999)
+set.seed(2026)
+theme_set(theme_minimal(base_size = 12))
+
+library(tidyverse)
+library(car)           # Test de Levene y VIF
+library(rstatix)       # Test de Games-Howell
+library(lmtest)        # Test de Breusch-Pagan y RESET
+library(sandwich)      # Matriz de covarianza robusta (HC1)
+library(modelsummary)  # Tablas y gráficos de modelos
+library(FactoMineR)    # Análisis de Componentes Principales (PCA)
+library(factoextra)    # Visualización de PCA
+
+# 2. Definición de rutas relativas
+input_dir    <- "input"
+out_tablas   <- file.path("output", "tablas")
+out_graficos <- file.path("output", "graficos")
+
+dir.create(out_tablas,   recursive = TRUE, showWarnings = FALSE)
+dir.create(out_graficos, recursive = TRUE, showWarnings = FALSE)
+
+# 3. Carga de la base limpia (generada en Script 01)
+ruta_base <- file.path(input_dir, "enut_limpia.csv")
+if (!file.exists(ruta_base)) {
+  ruta_base <- file.path(out_tablas, "enut_muestra_6046_clean.csv")
+}
+
+if (!file.exists(ruta_base)) {
+  stop("No se encuentra la base limpia. Por favor ejecute previamente el script 01_limpieza_eda.R.")
+}
+
+enut_muestra <- read_csv(ruta_base, show_col_types = FALSE)
+
+# Verificaciones iniciales
+dim(enut_muestra)
+colSums(is.na(enut_muestra))
+glimpse(enut_muestra)
+
+# ==============================================================================
+# SECCIÓN 1. CONFIGURACIÓN DE FACTORES Y DEFINICIÓN DE MUESTRAS
+# ==============================================================================
+
+enut_reg <- enut_muestra |>
+  mutate(
+    educacion_4cat = factor(educacion_4cat, levels = c(
+      "1. Hasta Sec. Incompleto",
+      "2. Secundario Completo",
+      "3. Terciario/Univ. Incompleto",
+      "4. Terciario/Univ. Completo"
+    )),
+    servicio_pago  = factor(servicio_pago, levels = c(
+      "Sin servicio pago",
+      "Con servicio pago"
+    )),
+    estado_laboral = factor(estado_laboral, levels = c(
+      "No ocupada",
+      "Ocupada"
+    )),
+    dia_tipo       = factor(dia_tipo, levels = c(
+      "Día Laborable",
+      "Día No Laborable"
+    ))
+  )
+
+# Verificación de conteos
+enut_reg |> count(educacion_4cat)
+enut_reg |> count(servicio_pago)
+
+# Submuestra para modelado (6.042 casos sin NAs en servicio_pago)
+enut_serv <- enut_reg |>
+  filter(!is.na(servicio_pago))
+
+# Control de faltantes y tamaños de muestra
+enut_reg |>
+  select(hs_domestico, hs_cuidado, edad_sel, cant_personashasta13,
+         educacion_4cat, servicio_pago, estado_laboral, dia_tipo) |>
+  summarise(across(everything(), ~ sum(is.na(.x))))
+
+c(n_muestra_completa = nrow(enut_reg), n_muestra_modelos = nrow(enut_serv))
+
+# ==============================================================================
+# SECCIÓN 2. DETECCIÓN Y PERFIL DE VALORES ATÍPICOS (OUTLIERS)
+# ==============================================================================
+
+# 2.1. Umbral IQR para trabajo doméstico
+q1 <- unname(quantile(enut_serv$hs_domestico, 0.25))
+q3 <- unname(quantile(enut_serv$hs_domestico, 0.75))
+iqr_dom    <- q3 - q1
+limite_sup <- q3 + 1.5 * iqr_dom
+
+round(c(q1 = q1, q3 = q3, iqr = iqr_dom, limite_hs = limite_sup, limite_min = limite_sup * 60), 2)
+round(c(mediana = median(enut_serv$hs_domestico), p90 = unname(quantile(enut_serv$hs_domestico, 0.9))), 2)
+
+# 2.2. Marcas de atípicos y filtrado
+enut_serv <- enut_serv |> mutate(outlier_dom = hs_domestico > limite_sup)
+enut_reg  <- enut_reg  |> mutate(outlier_dom = hs_domestico > limite_sup)
+
+enut_serv_sin <- enut_serv |> filter(!outlier_dom)
+enut_reg_sin  <- enut_reg  |> filter(!outlier_dom)
+
+n_out <- sum(enut_serv$outlier_dom)
+c(n_outliers = n_out, pct_outliers = round(100 * n_out / nrow(enut_serv), 2), n_sin_outliers = nrow(enut_serv_sin))
+
+enut_serv |>
+  filter(outlier_dom) |>
+  summarise(min_hs = round(min(hs_domestico), 2), max_hs = round(max(hs_domestico), 2))
+
+# 2.3. Perfil socio-demográfico de atípicos vs. resto
+perfil_out <- enut_serv |>
+  group_by(outlier_dom) |>
+  summarise(
+    n                 = n(),
+    pct_no_laborable  = round(100 * mean(dia_tipo == "Día No Laborable"), 1),
+    pct_ocupada       = round(100 * mean(estado_laboral == "Ocupada"), 1),
+    edad_media        = round(mean(edad_sel), 1),
+    pct_hasta_sec_inc = round(100 * mean(educacion_4cat == "1. Hasta Sec. Incompleto"), 1),
+    .groups           = "drop"
+  )
+
+print(perfil_out)
+write_csv(perfil_out, file.path(out_tablas, "perfil_outliers.csv"))
+
+# 2.4. Control de jornadas combinadas > 24 hs
+enut_serv |>
+  filter(outlier_dom) |>
+  summarise(suma_mas_24 = sum(hs_domestico + hs_cuidado > 24))
+
+# 2.5. Impacto en la media
+c(con_73 = mean(enut_serv$hs_domestico), sin_73 = mean(enut_serv_sin$hs_domestico))
+
+# 2.6. Diagnóstico del Cuidado Directo (estructura de ceros)
+round(100 * mean(enut_serv$hs_cuidado == 0), 1)
+
+enut_serv |>
+  group_by(con_ninos = cant_personashasta13 > 0) |>
+  summarise(
+    pct_cero      = round(100 * mean(hs_cuidado == 0), 1),
+    media_cuidado = round(mean(hs_cuidado), 2),
+    .groups       = "drop"
+  )
+
+# 2.7. Tabla descriptiva comparativa (CON y SIN atípicos)
+resumir_dom <- function(d) {
+  d |> summarise(
+    n       = n(),
+    media   = round(mean(hs_domestico), 2),
+    mediana = round(median(hs_domestico), 2),
+    sd      = round(sd(hs_domestico), 2),
+    p90     = round(unname(quantile(hs_domestico, 0.9)), 2),
+    max     = round(max(hs_domestico), 2)
+  )
+}
+
+desc_outliers <- bind_rows(
+  con_73 = resumir_dom(enut_serv),
+  sin_73 = resumir_dom(enut_serv_sin),
+  .id    = "muestra"
+)
+
+print(desc_outliers)
+write_csv(desc_outliers, file.path(out_tablas, "descriptivas_con_sin_outliers.csv"))
+
+# ==============================================================================
+# SECCIÓN 3. INFERENCIA 1: ANOVA Y SUPUESTOS (NIVEL EDUCATIVO)
+# ==============================================================================
+
+# 3.1. Descriptivos por nivel educativo
+desc_educ <- enut_reg |>
+  group_by(educacion_4cat) |>
+  summarise(
+    n       = n(),
+    media   = round(mean(hs_domestico), 2),
+    mediana = round(median(hs_domestico), 2),
+    sd      = round(sd(hs_domestico), 2),
+    .groups = "drop"
+  )
+print(desc_educ)
+
+# 3.2. ANOVA de un factor y Eta cuadrado
+modelo_anova <- aov(hs_domestico ~ educacion_4cat, data = enut_reg)
+summary(modelo_anova)
+
+tabla_aov <- summary(modelo_anova)[[1]]
+eta2 <- tabla_aov$`Sum Sq`[1] / sum(tabla_aov$`Sum Sq`)
+round(c(eta_cuadrado = eta2), 3)
+
+# 3.3. Evaluación de Supuestos
+png(file.path(out_graficos, "qqplot_residuos_anova.png"), width = 800, height = 600)
+qqnorm(residuals(modelo_anova), main = "QQ-plot de residuos del ANOVA")
+qqline(residuals(modelo_anova), col = "firebrick")
+dev.off()
+
+car::leveneTest(hs_domestico ~ educacion_4cat, data = enut_reg)
+
+# 3.4. ANOVA de Welch y Post-Hoc Games-Howell
+oneway.test(hs_domestico ~ educacion_4cat, data = enut_reg)
+
+gh <- rstatix::games_howell_test(enut_reg, hs_domestico ~ educacion_4cat)
+gh_print <- gh |> select(group1, group2, estimate, conf.low, conf.high, p.adj)
+print(gh_print, width = Inf)
+write_csv(gh_print, file.path(out_tablas, "post_hoc_games_howell.csv"))
+
+# 3.5. Kruskal-Wallis (Prueba no paramétrica)
+kw <- kruskal.test(hs_domestico ~ educacion_4cat, data = enut_reg)
+print(kw)
+
+eps2_con <- unname(kw$statistic) / (nrow(enut_reg) - 1)
+round(c(epsilon2_catedra = eps2_con), 3)
+
+pairwise.wilcox.test(enut_reg$hs_domestico, enut_reg$educacion_4cat,
+                     p.adjust.method = "bonferroni", exact = FALSE)
+
+# 3.6. Robustez SIN atípicos
+kw_sin   <- kruskal.test(hs_domestico ~ educacion_4cat, data = enut_reg_sin)
+eps2_sin <- unname(kw_sin$statistic) / (nrow(enut_reg_sin) - 1)
+round(c(epsilon2_sin_outliers = eps2_sin), 3)
+
+# 3.7. Análisis de Composición
+composicion <- enut_reg |>
+  group_by(educacion_4cat) |>
+  summarise(
+    n              = n(),
+    edad_media     = round(mean(edad_sel), 1),
+    pct_con_ninos  = round(100 * mean(cant_personashasta13 > 0), 1),
+    pct_ocupada    = round(100 * mean(estado_laboral == "Ocupada"), 1),
+    hs_domestico   = round(mean(hs_domestico), 2),
+    .groups        = "drop"
+  )
+
+print(composicion)
+
+enut_reg |>
+  group_by(educacion_4cat) |>
+  summarise(
+    edad_pond      = round(weighted.mean(edad_sel, wper), 1),
+    pct_ninos_pond = round(100 * weighted.mean(cant_personashasta13 > 0, wper), 1),
+    .groups        = "drop"
+  )
+
+write_csv(composicion, file.path(out_tablas, "composicion_educacion.csv"))
+
+# ==============================================================================
+# SECCIÓN 4. INFERENCIA 2: CHI-CUADRADO (EDUCACIÓN X SERVICIO PAGO)
+# ==============================================================================
+
+# 4.1. Tabla de contingencia y porcentajes por nivel educativo
+tabla_chi <- table(enut_serv$educacion_4cat, enut_serv$servicio_pago)
+addmargins(tabla_chi)
+
+prop_fila <- round(prop.table(tabla_chi, margin = 1) * 100, 1)
+print(prop_fila)
+
+# 4.2. Prueba de Chi-cuadrado
+test_chi2 <- chisq.test(tabla_chi)
+print(test_chi2)
+
+min_esperado <- min(test_chi2$expected)
+round(c(frecuencia_min_esperada = min_esperado), 1)
+
+# 4.3. Tamaño del efecto: V de Cramer y Residuos Estandarizados
+n_obs    <- sum(tabla_chi)
+k_min    <- min(dim(tabla_chi))
+v_cramer <- sqrt(unname(test_chi2$statistic) / (n_obs * (k_min - 1)))
+round(c(v_cramer = v_cramer), 2)
+
+round(test_chi2$stdres, 2)
+
+# 4.4. Porcentajes ponderados (WPER)
+enut_serv |>
+  group_by(educacion_4cat) |>
+  summarise(
+    pct_servicio_pond = round(100 * weighted.mean(servicio_pago == "Con servicio pago", w = wper), 1),
+    .groups = "drop"
+  )
+
+# 4.5. Exportación
+tabla_export <- as.data.frame.matrix(prop_fila) |>
+  tibble::rownames_to_column(var = "educacion_4cat")
+
+write_csv(tabla_export, file.path(out_tablas, "chi2_educacion_servicio.csv"))
+
+# ==============================================================================
+# SECCIÓN 5. REGRESIÓN MCO: TRABAJO DOMÉSTICO Y ERRORES ROBUSTOS
+# ==============================================================================
+
+# Definición de la fórmula regresora común
+rhs <- "educacion_4cat + servicio_pago + cant_personashasta13 + estado_laboral + dia_tipo + edad_sel"
+
+# 5.1. Modelo MCO Principal (Trabajo Doméstico)
+modelo_dom <- lm(as.formula(paste("hs_domestico ~", rhs)), data = enut_serv)
+summary(modelo_dom)
+
+# Coeficientes con Errores Estándar Robustos HC1
+coeftest(modelo_dom, vcov = vcovHC(modelo_dom, type = "HC1"))
+
+# 5.2. Diagnóstico de Supuestos Econométricos
+v_dom <- car::vif(modelo_dom)
+round(v_dom[, "GVIF^(1/(2*Df))"], 2)
+
+lmtest::bptest(modelo_dom)
+lmtest::resettest(modelo_dom)
+
+# 5.3. Análisis de Sensibilidad (Muestra SIN atípicos)
+modelo_dom_sin <- lm(as.formula(paste("hs_domestico ~", rhs)), data = enut_serv_sin)
+coeftest(modelo_dom_sin, vcov = vcovHC(modelo_dom_sin, type = "HC1"))
+
+ajuste_comparativo <- c(
+  n_con      = nobs(modelo_dom),
+  r2_con     = round(summary(modelo_dom)$r.squared, 3),
+  r2_adj_con = round(summary(modelo_dom)$adj.r.squared, 3),
+  n_sin      = nobs(modelo_dom_sin),
+  r2_sin     = round(summary(modelo_dom_sin)$r.squared, 3),
+  r2_adj_sin = round(summary(modelo_dom_sin)$adj.r.squared, 3)
+)
+
+print(ajuste_comparativo)
+
+# 5.4. Modelo Completo de Cuidado Directo (Muestra completa de 6.042 obs)
+modelo_cuid <- lm(as.formula(paste("hs_cuidado ~", rhs)), data = enut_serv)
+coeftest(modelo_cuid, vcov = vcovHC(modelo_cuid, type = "HC1"))
+round(c(r2_ajustado_cuidado = summary(modelo_cuid)$adj.r.squared), 3)
+
+# 5.5. Submuestra restringida a mujeres con niños (0 a 13 años)
+cuid_ninos <- lm(as.formula(paste("hs_cuidado ~", rhs)),
+                 data = filter(enut_serv, cant_personashasta13 > 0))
+
+c(n_muestra_ninos = nobs(cuid_ninos))
+coeftest(cuid_ninos, vcov = vcovHC(cuid_ninos, type = "HC1"))
+
+# 5.6. Modelo en dos partes (Hurdle Model por exceso de ceros)
+enut_serv <- enut_serv |> mutate(cuida_algo = as.integer(hs_cuidado > 0))
+
+# Parte 1: Probabilidad de realizar cuidado (Logit Binomial)
+parte1 <- glm(as.formula(paste("cuida_algo ~", rhs)), family = binomial, data = enut_serv)
+summary(parte1)
+
+# Parte 2: Horas dedicadas dado que realiza cuidado > 0 (MCO con HC1)
+parte2 <- lm(as.formula(paste("hs_cuidado ~", rhs)), data = filter(enut_serv, hs_cuidado > 0))
+coeftest(parte2, vcov = vcovHC(parte2, type = "HC1"))
+
+# 5.7. Gráfico de Coeficientes del Modelo de Trabajo Doméstico (modelsummary)
+g_coef <- modelsummary::modelplot(modelo_dom, vcov = "HC1", coef_omit = "Intercept") +
+  geom_vline(xintercept = 0, linetype = "dashed", color = "firebrick") +
+  labs(
+    title    = "Variables asociadas al trabajo doméstico no remunerado",
+    subtitle = "Coeficientes e IC 95% (Errores estándar robustos HC1)",
+    x        = "Cambio asociado en horas diarias",
+    y        = ""
+  ) +
+  theme_minimal(base_size = 12)
+
+ggsave(file.path(out_graficos, "modelplot_coeficientes.png"),
+       plot = g_coef, width = 8, height = 5, dpi = 300)
+
+# ==============================================================================
+# SECCIÓN 6. ANÁLISIS DE COMPONENTES PRINCIPALES (PCA) Y SENSIBILIDAD
+# ==============================================================================
+
+# 6.1. Selección de variables activas y matriz de correlaciones (6.042 casos)
+base_pca <- enut_serv |>
+  dplyr::select(edad_sel, hs_domestico, hs_cuidado, cant_personashasta13)
+
+round(cor(base_pca), 2)
+
+# Estimación del PCA con variables estandarizadas
+pca_con <- prcomp(base_pca, center = TRUE, scale. = TRUE)
+
+summary(pca_con)
+round(c(autovalores = pca_con$sdev^2), 2)
+
+# Screeplot (Gráfico de codos)
+png(file.path(out_graficos, "screeplot_pca_4var.png"), width = 800, height = 600)
+screeplot(pca_con, type = "lines", main = "Scree plot - Autovalores del PCA")
+dev.off()
+
+round(pca_con$rotation, 2)
+
+# Guardar componentes principales en la base activa
+enut_serv <- enut_serv |>
+  mutate(
+    pc1_4v = pca_con$x[, 1],
+    pc2_4v = pca_con$x[, 2]
+  )
+
+# Promedio de componentes por Nivel Educativo
+enut_serv |>
+  group_by(educacion_4cat) |>
+  summarise(
+    n      = n(),
+    pc1_4v = round(mean(pc1_4v), 2),
+    pc2_4v = round(mean(pc2_4v), 2),
+    .groups = "drop"
+  )
+
+# Promedio de componentes por Servicio Pago
+enut_serv |>
+  group_by(servicio_pago) |>
+  summarise(
+    n      = n(),
+    pc1_4v = round(mean(pc1_4v), 2),
+    pc2_4v = round(mean(pc2_4v), 2),
+    .groups = "drop"
+  )
+
+# 6.2. Análisis de Sensibilidad SIN atípicos (5.969 observaciones)
+pca_sin <- prcomp(
+  dplyr::select(enut_serv_sin, edad_sel, hs_domestico, hs_cuidado, cant_personashasta13),
+  center = TRUE, scale. = TRUE
+)
+summary(pca_sin)
+
+# Sensibilidad: Evaluación de varianza al omitir una variable por vez
+base_pca_original <- base_pca
+for (v in names(base_pca_original)) {
+  p <- prcomp(base_pca_original[, names(base_pca_original) != v], center = TRUE, scale. = TRUE)
+  cat("\n--- Omisión de variable:", v, "---\n")
+  print(round(summary(p)$importance[2:3, 1:2], 3))
+}
+
+# 6.3. Justificación metodológica de la exclusión de WPER
+pca_wper <- prcomp(cbind(base_pca_original, wper = enut_serv$wper), center = TRUE, scale. = TRUE)
+round(pca_wper$rotation, 2)
+
+# 6.4. Limitación de correlación lineal (Pearson vs. Spearman)
+c(
+  pearson  = round(cor(enut_serv$cant_personashasta13, enut_serv$hs_cuidado), 3),
+  spearman = round(cor(enut_serv$cant_personashasta13, enut_serv$hs_cuidado, method = "spearman"), 3)
+)
+
+# 6.5. Definición de bloques de variables para PCA ampliado (FactoMineR)
+vars_act     <- c("hs_remunerado", "hs_domestico", "hs_cuidado", "hs_convivencia", "hs_medios")
+vars_sup_num <- c("edad_sel", "cant_personashasta13")
+vars_sup_cat <- c("educacion_4cat", "servicio_pago")
+
+# Preparación del data frame para FactoMineR
+df_pca <- enut_serv |>
+  dplyr::select(all_of(c(vars_act, vars_sup_num, vars_sup_cat))) |>
+  as.data.frame()
+
+stopifnot(!anyNA(df_pca))
+
+round(cor(df_pca[, vars_act]), 2)
+round(100 * colMeans(df_pca[, vars_act] == 0), 1)
+
+# ==============================================================================
+# SECCIÓN 7. PCA CON FACTOMINER Y CLUSTERING JERÁRQUICO (HCPC)
+# ==============================================================================
+
+# 7.1. Ejecución del PCA con FactoMineR
+n_act  <- length(vars_act)
+n_num  <- length(vars_sup_num)
+
+res_pca <- FactoMineR::PCA(
+  df_pca,
+  quanti.sup = n_act + seq_len(n_num),
+  quali.sup  = n_act + n_num + seq_along(vars_sup_cat),
+  scale.unit = TRUE,
+  graph      = FALSE
+)
+
+# Inversión de signo de Dim.1 para facilitar la interpretación del eje
+res_pca$var$coord[, "Dim.1"]        <- -res_pca$var$coord[, "Dim.1"]
+res_pca$ind$coord[, "Dim.1"]        <- -res_pca$ind$coord[, "Dim.1"]
+res_pca$quanti.sup$coord[, "Dim.1"] <- -res_pca$quanti.sup$coord[, "Dim.1"]
+res_pca$quali.sup$coord[, "Dim.1"]  <- -res_pca$quali.sup$coord[, "Dim.1"]
+
+# 7.2. Resultados e Interpretación Factorial
+# Autovalores y varianza explicada (Criterio de Kaiser > 1)
+res_pca$eig
+
+# Gráfico de Codos (Scree Plot)
+g_scree <- factoextra::fviz_screeplot(res_pca, addlabels = TRUE, title = "Varianza Explicada por Dimensión")
+ggsave(file.path(out_graficos, "pca_screeplot_factominer.png"), plot = g_scree, width = 7, height = 5, dpi = 300)
+
+# Cargas factoriales (Coordenadas de las variables activas)
+round(res_pca$var$coord[, 1:2], 2)
+
+# Contribución de cada actividad a los ejes (Referencia: 100% / 5 = 20%)
+round(res_pca$var$contrib[, 1:2], 1)
+
+# Proyección de variables suplementarias numéricas (Edad y Niños)
+round(res_pca$quanti.sup$coord[, 1:2], 2)
+
+# Proyección de categorías suplementarias (Educación y Servicio Pago)
+round(res_pca$quali.sup$coord[, 1:2], 2)
+
+# Test estadístico de separación de categorías (|v.test| > 1,96 es significativo)
+round(res_pca$quali.sup$v.test[, 1:2], 1)
+
+# Círculo de Correlación de Variables
+g_pca_var <- factoextra::fviz_pca_var(res_pca, repel = TRUE, title = "Círculo de Correlación - Actividades y Suplementarias")
+g_pca_var
+ggsave(file.path(out_graficos, "pca_circulo_correlacion.png"), plot = g_pca_var, width = 7, height = 6, dpi = 300)
+
+# 7.3. Guardar componentes principales del PCA en la muestra activa
+enut_serv <- enut_serv |>
+  mutate(
+    pc1_act = res_pca$ind$coord[, 1],
+    pc2_act = res_pca$ind$coord[, 2]
+  )
+
+# 7.4. Análisis de Robustez: Muestra SIN atípicos
+pca_act_sin <- prcomp(
+  dplyr::select(enut_serv_sin, all_of(vars_act)),
+  center = TRUE,
+  scale. = TRUE
+)
+summary(pca_act_sin)
+
+# ------------------------------------------------------------------------------
+# CLUSTERING JERÁRQUICO SOBRE COMPONENTES PRINCIPALES (HCPC)
+# ------------------------------------------------------------------------------
+
+# A. Diagnóstico automático de k y ganancia de inercia
+res_hcpc_auto <- FactoMineR::HCPC(res_pca, nb.clust = -1, consol = TRUE, graph = FALSE)
+round(res_hcpc_auto$call$t$inert.gain[1:10], 3)
+
+# B. Estimación final fijando k = 4 clusters (criterio de interpretabilidad)
+k_clusters <- 4
+res_hcpc <- FactoMineR::HCPC(res_pca, nb.clust = k_clusters, consol = TRUE, graph = FALSE)
+
+# Caracterización estadística de cada cluster por v-test
+res_hcpc$desc.var$quanti
+
+# Incorporación de la pertenencia a cluster en la base activa
+enut_serv <- enut_serv |>
+  mutate(cluster_hcpc = res_hcpc$data.clust$clust)
+
+# Conteo de observaciones por cluster
+enut_serv |> count(cluster_hcpc)
+
+# C. Perfil de promedios de actividades y sociodemográficos por grupo
+perfil_clusters <- enut_serv |>
+  group_by(cluster_hcpc) |>
+  summarise(
+    n = n(),
+    across(c(hs_remunerado, hs_domestico, hs_cuidado, hs_convivencia, hs_medios,
+             edad_sel, cant_personashasta13), ~ round(mean(.x), 2)),
+    .groups = "drop"
+  )
+
+print(perfil_clusters)
+write_csv(perfil_clusters, file.path(out_tablas, "perfil_clusters_hcpc.csv"))
+
+# D. Distribución porcentual por fila (% de cada nivel educativo / servicio en los grupos)
+prop_educ <- round(prop.table(table(enut_serv$educacion_4cat, enut_serv$cluster_hcpc), margin = 1) * 100, 1)
+prop_serv <- round(prop.table(table(enut_serv$servicio_pago,  enut_serv$cluster_hcpc), margin = 1) * 100, 1)
+
+print(prop_educ)
+print(prop_serv)
+
+# E. Visualización de los Clusters en el plano factorial (PC1 - PC2)
+g_cluster <- factoextra::fviz_cluster(
+  res_hcpc,
+  geom            = "point",
+  show.clust.cent = TRUE,
+  main            = "Tipologías de Uso del Tiempo (HCPC sobre PC1-PC2)"
+) + theme_minimal(base_size = 12)
+
+print(g_cluster)
+ggsave(file.path(out_graficos, "hcpc_clusters.png"), plot = g_cluster, width = 8, height = 6, dpi = 300)
+
+# ==============================================================================
+# SECCIÓN 8. ANÁLISIS DE ROBUSTEZ GLOBAL (CON Y SIN LOS 73 ATÍPICOS)
+# ==============================================================================
+
+# 8.1. Verificación preventiva para los objetos del PCA
+if (!exists("pca_act")) {
+  pca_act <- prcomp(dplyr::select(enut_serv, all_of(vars_act)), center = TRUE, scale. = TRUE)
+}
+if (!exists("pca_act_sin")) {
+  pca_act_sin <- prcomp(dplyr::select(enut_serv_sin, all_of(vars_act)), center = TRUE, scale. = TRUE)
+}
+
+# 8.2. Construcción del cuadro comparativo de robustez
+robustez <- tibble(
+  resultado = c(
+    "Media trabajo doméstico (hs)",
+    "Regresión: servicio pago (hs)",
+    "Kruskal-Wallis: epsilon^2",
+    "PCA (5 actividades): % varianza PC1",
+    "PCA (5 actividades): % varianza PC2"
+  ),
+  con_73 = c(
+    mean(enut_serv$hs_domestico),
+    unname(coef(modelo_dom)["servicio_pagoCon servicio pago"]),
+    eps2_con,
+    100 * summary(pca_act)$importance[2, 1],
+    100 * summary(pca_act)$importance[2, 2]
+  ),
+  sin_73 = c(
+    mean(enut_serv_sin$hs_domestico),
+    unname(coef(modelo_dom_sin)["servicio_pagoCon servicio pago"]),
+    eps2_sin,
+    100 * summary(pca_act_sin)$importance[2, 1],
+    100 * summary(pca_act_sin)$importance[2, 2]
+  )
+) |>
+  mutate(across(where(is.numeric), ~ round(.x, 3)))
+
+print(robustez)
+write_csv(robustez, file.path(out_tablas, "robustez_con_sin_outliers.csv"))
+
+# ==============================================================================
+# SECCIÓN 9. CIERRE: EXPORTACIÓN DE RESULTADOS Y EMPAQUETADO FINAL
+# ==============================================================================
+
+# 9.1. Matriz de trazabilidad y respuesta a la devolución de Instancia 2
+devolucion_inst2 <- tribble(
+  ~observacion,                                            ~celda, ~estado,
+  "ANOVA: Welch con Games-Howell (Levene rechaza)",         "6",   "Resuelto",
+  "Brecha del terciario incompleto = composición",          "6",   "Resuelto",
+  "Regresión: ingreso del hogar",                           "8",   "Limitación explícita",
+  "Cuidado: 61% de ceros, restringir o dos partes",         "8",   "Resuelto (Opciones A y B)",
+  "PCA solo con actividades; edad y niños suplementarias",  "9",   "Resuelto (5 actividades)"
+)
+
+print(devolucion_inst2)
+
+# 9.2. Exportación de la base de datos final enriquecida
+write_csv(enut_serv, file.path(out_tablas, "enut_serv_con_pca_clusters.csv"))
+
+# 9.3. Verificación de archivos generados en output
+list.files("output", recursive = TRUE)
+
+# 9.4. Empaquetado comprimido (.zip) para entrega
+utils::zip("output_instancia2.zip", files = "output")
+file.exists("output_instancia2.zip")
