@@ -1,0 +1,7 @@
+par,r
+cant_personashasta13 - hs_cuidado,0.55
+cant_personashasta13 - edad_sel,-0.27
+edad_sel - hs_domestico,0.21
+edad_sel - hs_cuidado,-0.19
+hs_cuidado - hs_domestico,0.18
+cant_personashasta13 - hs_domestico,0.15

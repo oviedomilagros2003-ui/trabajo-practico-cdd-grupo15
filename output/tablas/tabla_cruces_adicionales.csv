@@ -1,0 +1,10 @@
+variable,grupo,casos,hs_domestico_prom,hs_cuidado_prom,pct_muestra
+dia_tipo,Día Laborable,2872,2.71,1.62,47.5
+dia_tipo,Día No Laborable,3174,4.55,2.94,52.5
+estado_laboral,No ocupada,2073,4.82,3.17,34.3
+estado_laboral,Ocupada,3973,3.06,1.85,65.7
+ninos_cat,1 niño/a,1392,3.96,4.2,23
+ninos_cat,2 o más niños,1216,4.45,6.23,20.1
+ninos_cat,Sin niños,3438,3.36,0.27,56.9
+servicio_pago,Con servicio pago,345,2.71,2.05,5.7
+servicio_pago,Sin servicio pago,5697,3.77,2.36,94.3
