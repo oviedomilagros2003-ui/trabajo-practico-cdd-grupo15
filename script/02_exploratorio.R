@@ -157,7 +157,7 @@ tabla_3_ocupadas <- enut_clean |>
 write_csv(tabla_3_ocupadas, file.path(out_tablas, "tabla_3_mujeres_ocupadas_ninos.csv"))
 tabla_3_ocupadas
 
-# 2.4. Cruces con otras variables (devolución de la instancia 1)
+# 2.4. Cruces con otras variables 
 tabla_cruces <- enut_clean |>
   select(hs_domestico, hs_cuidado, wper, servicio_pago, estado_laboral, ninos_cat, dia_tipo) |>
   pivot_longer(cols = c(servicio_pago, estado_laboral, ninos_cat, dia_tipo),
