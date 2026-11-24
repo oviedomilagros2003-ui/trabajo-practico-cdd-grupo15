@@ -82,7 +82,7 @@ Todos los pasos se hacen en celdas de Colab; los scripts no instalan paquetes ni
 2. **Celda 2.** Descargar el repositorio y fijar su carpeta como directorio de trabajo:
 
    ```r
-   system("git clone https://github.com/COMPLETAR_USUARIO/trabajo-practico-cdd-grupo15.git")
+   system("git clone https://github.com/oviedomilagros2003-ui/trabajo-practico-cdd-grupo15.git")
    setwd("/content/trabajo-practico-cdd-grupo15")
    getwd()
    ```
