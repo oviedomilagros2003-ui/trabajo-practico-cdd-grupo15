@@ -16,8 +16,6 @@ source(file.path("utils", "fmt_dec.R"))
 source(file.path("utils", "suavizar.R"))
 
 dpi_jpg       <- 300
-fuente_titulo <- "serif"
-fuente_cuerpo <- "sans"
 
 input_dir    <- "input"
 out_graficos <- file.path("output", "graficos")
