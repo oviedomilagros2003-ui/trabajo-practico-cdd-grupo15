@@ -1,4 +1,4 @@
-# Paleta de colores y tema visual 
+# Paleta de colores y tema visual script 06
 library(ggplot2)
 
 # ---- Tipografía ---------------------------------------
