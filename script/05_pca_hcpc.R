@@ -278,7 +278,7 @@ g_cluster <- factoextra::fviz_cluster(res_hcpc, geom = "point", show.clust.cent 
   )
 guardar_grafico(g_cluster, "hcpc_clusters.png", ancho = 20, alto = 15)
 
-# 4.3. Perfiles con k alternativos (anexo), para respaldar la elección de k
+# 4.3. Perfiles con k alternativos , para respaldar la elección de k
 perfiles_k <- bind_rows(lapply(3:5, function(k) {
   h <- FactoMineR::HCPC(res_pca, nb.clust = k, consol = TRUE, graph = FALSE)
   enut_serv |>
