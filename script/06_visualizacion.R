@@ -215,8 +215,8 @@ g_com <- g_com +
   theme(panel.grid.major.x = element_blank(), plot.margin = margin(14, 16, 12, 16))
 
 titulo <- str_wrap(paste0(
-  "Las mujeres con 2 o más niños/as en el hogar hacen más de ", floor(brecha_min),
-  " horas diarias más de trabajo no remunerado, a cualquier edad."), width = 62)
+  "Las mujeres con 2 o más niños/as en el hogar dedican al menos ", floor(brecha_min),
+  " horas diarias adicionales al trabajo no remunerado, a cualquier edad."), width = 62)
 
 bajada_1 <- str_wrap(paste0(
   "Horas diarias de trabajo doméstico y de cuidado directo según la edad, ",
