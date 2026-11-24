@@ -1,0 +1,10 @@
+codigo,descripcion_original,educacion_4cat,incluir_analisis
+1,Sin instrucción / Inicial,1. Hasta Sec. Incompleto,SI
+2,Primaria incompleta,1. Hasta Sec. Incompleto,SI
+3,Primaria completa,1. Hasta Sec. Incompleto,SI
+4,Secundaria incompleta,1. Hasta Sec. Incompleto,SI
+5,Secundaria completa,2. Secundario Completo,SI
+6,Terciario/Univ. incompleto,3. Terciario/Univ. Incompleto,SI
+7,Terciario/Univ. completo,4. Terciario/Univ. Completo,SI
+8,Educación especial,Excluido,NO
+99,Ns/Nc,Excluido,NO
