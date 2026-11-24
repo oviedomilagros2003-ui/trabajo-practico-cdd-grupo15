@@ -1,0 +1,4 @@
+variable,codigo,significado,base_completa,mujeres_18_64,pct_mujeres_18_64
+nivel_educativo_sel,99,Ns/Nc,40,16,0.26
+nivel_educativo_sel,8,Educación especial,34,15,0.25
+t_domestico_pago,99,Ns/Nc,14,4,0.07

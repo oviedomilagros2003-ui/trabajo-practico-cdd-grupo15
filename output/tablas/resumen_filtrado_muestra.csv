@@ -1,5 +1,6 @@
-etapa,casos_retenidos,casos_excluidos
-Base seleccionada inicial,14350,NA
-Solo mujeres,8055,6295
-Edad activa (18 a 64 años),6077,1978
-Nivel educativo informado (Muestra final),6046,31
+paso,casos,excluidos
+Base completa,14350,NA
+Mujeres,8055,6295
+Mujeres de 18 a 64 años,6077,1978
+Nivel educativo válido,6046,31
+Servicio pago válido,6042,4

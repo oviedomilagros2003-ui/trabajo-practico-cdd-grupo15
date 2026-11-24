@@ -1,0 +1,6 @@
+variable,limite_iqr,n_atipicos,pct_atipicos,pct_ceros,pct_atipicos_con_ninos
+hs_domestico,11.08,73,1.2,8.5,43.8
+hs_cuidado,7.5,733,12.1,61.2,96.5
+hs_remunerado,17.92,7,0.1,52.9,57.1
+hs_convivencia,7.5,325,5.4,47.2,36.6
+hs_medios,11.17,223,3.7,13.2,32.7

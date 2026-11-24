@@ -1,14 +1,14 @@
-variable,descripcion,tipo,categorias_rangos,funcion_estudio,na_n,ns_nc_99
-sexo_sel,Sexo asignado al nacer,Nominal,"1=Mujer, 2=Varón",Filtro: mujeres,0,0
-edad_sel,Edad en años cumplidos,Discreta,18 a 64 años (filtro aplicado),Filtro: edad activa,0,NA
-nivel_educativo_sel,Máximo nivel educativo alcanzado,Ordinal,1 a 7 (4 categorías); 8 y 99 excluidos,Variable explicativa,0,40
-tcs_grupo_domestico,Minutos diarios de trabajo doméstico no pago,Continua,0 a 1170 min.,Variable dependiente,0,NA
-tcs_grupo_cuidado,Minutos diarios de cuidado directo a miembros del hogar,Continua,0 a 1860 min.,Variable dependiente,0,NA
-cant_personashasta13,Cantidad de niños de 0 a 13 años en el hogar,Discreta,0 a 6 niños (muestra final),Variable de control,0,NA
-wper,Factor de expansión poblacional individual,Discreta,Enteros positivos,Ponderador,0,NA
-dia_laborable,Tipo de día relevado en el diario de actividades,Dicotómica,"1=Laborable, 2=No laborable",Variable de control,0,0
-t_domestico_pago,Presencia de servicio doméstico pago en el hogar,Dicotómica,"1=Sí, 2=No (99=Ns/Nc)",Mecanismo directo,0,14
-condicion_actividad_agrupada,Inserción laboral de la persona seleccionada,Nominal,"1=Ocupada, 2=No ocupada",Variable de control,0,0
-tcs_grupo_trabajoocupacion,Minutos diarios de trabajo remunerado,Continua,0 a 1440 min.,Actividad (PCA),0,NA
-tcs_grupo_convivencia,Minutos diarios de convivencia,Continua,0 a 1440 min.,Actividad (PCA),0,NA
-tcs_grupo_usodemedios,Minutos diarios de uso de medios,Continua,0 a 1440 min.,Actividad (PCA),0,NA
+variable,descripcion,tipo,categorias_rangos,funcion_estudio,faltantes_n,minimo_observado,maximo_observado
+sexo_sel,Sexo asignado al nacer,Nominal,"1=Mujer, 2=Varón",Filtro: mujeres,0,NA,NA
+edad_sel,Edad en años cumplidos,Discreta,18 a 64 (filtro aplicado),Filtro y control,0,18,64
+nivel_educativo_sel,Máximo nivel educativo alcanzado,Ordinal,1 a 7; 8 y 99 excluidos,Variable explicativa,31,NA,NA
+tcs_grupo_domestico,Minutos diarios de trabajo doméstico no pago,Continua,minutos por día,Variable dependiente,0,0,1170
+tcs_grupo_cuidado,Minutos diarios de cuidado directo en el hogar,Continua,minutos por día,Variable dependiente,0,0,1860
+tcs_grupo_trabajoocupacion,Minutos diarios de trabajo remunerado,Continua,minutos por día,Actividad (PCA),0,0,1440
+tcs_grupo_convivencia,Minutos diarios de convivencia,Continua,minutos por día,Actividad (PCA),0,0,2040
+tcs_grupo_usodemedios,Minutos diarios de uso de medios,Continua,minutos por día,Actividad (PCA),0,0,1560
+cant_personashasta13,Niños de 0 a 13 años en el hogar,Discreta,cantidad de personas,Control,0,0,6
+dia_laborable,Tipo de día relevado en el diario,Dicotómica,"1=Laborable, 2=No laborable",Control,0,NA,NA
+t_domestico_pago,Servicio doméstico pago en el hogar,Dicotómica,"1=Sí, 2=No, 99=Ns/Nc",Tercerización,4,NA,NA
+condicion_actividad_agrupada,Condición de actividad de la mujer,Dicotómica,"1=Ocupada, 2=No ocupada",Control,0,NA,NA
+wper,Factor de expansión individual,Discreta,enteros positivos,Ponderador,0,28,25006

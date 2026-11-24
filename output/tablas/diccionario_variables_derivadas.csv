@@ -1,0 +1,12 @@
+variable,como_se_calcula
+hs_domestico,tcs_grupo_domestico / 60 (horas por día)
+hs_cuidado,tcs_grupo_cuidado / 60 (horas por día)
+hs_remunerado,tcs_grupo_trabajoocupacion / 60 (horas por día)
+hs_convivencia,tcs_grupo_convivencia / 60 (horas por día)
+hs_medios,tcs_grupo_usodemedios / 60 (horas por día)
+educacion_4cat,Códigos 1-4 = Hasta sec. incompleto; 5 = Sec. completo; 6 = Terc./univ. incompleto; 7 = Terc./univ. completo (tabla auxiliar)
+servicio_pago,t_domestico_pago: 1 = Con servicio pago; 2 = Sin servicio pago; 99 = NA
+estado_laboral,condicion_actividad_agrupada: 1 = Ocupada; 2 = No ocupada
+presencia_ninos,Con niños si cant_personashasta13 > 0
+ninos_cat,Sin niños / 1 niño/a / 2 o más niños
+dia_tipo,dia_laborable: 1 = Día Laborable; 2 = Día No Laborable

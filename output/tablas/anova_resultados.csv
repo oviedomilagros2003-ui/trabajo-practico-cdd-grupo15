@@ -1,0 +1,4 @@
+test,estadistico,gl,p_valor,tamano_efecto,medida_efecto
+ANOVA clásico,91.334,3 y 6042,0,0.0434,eta cuadrado
+ANOVA de Welch,92.394,3 y 3284,0,NA,NA
+Kruskal-Wallis,276.5454,3,0,0.0457,epsilon cuadrado

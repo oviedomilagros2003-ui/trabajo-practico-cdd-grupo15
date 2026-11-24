@@ -1,5 +1,5 @@
-educacion_4cat,n,edad_media,pct_con_ninos,pct_ocupada,hs_domestico
-1. Hasta Sec. Incompleto,1663,43.4,48.6,50.9,4.36
-2. Secundario Completo,1679,40.1,49.6,65,3.79
-3. Terciario/Univ. Incompleto,1193,32.2,35,63.2,2.8
-4. Terciario/Univ. Completo,1511,43.4,36.3,84.8,3.23
+educacion_4cat,n,edad_media,pct_con_ninos,pct_ocupada,pct_no_laborable,hs_domestico
+1. Hasta Sec. Incompleto,1663,43.4,48.6,50.9,64.2,4.36
+2. Secundario Completo,1679,40.1,49.6,65,51.5,3.79
+3. Terciario/Univ. Incompleto,1193,32.2,35,63.2,54.3,2.8
+4. Terciario/Univ. Completo,1511,43.4,36.3,84.8,39.3,3.23

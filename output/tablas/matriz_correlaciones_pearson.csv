@@ -1,0 +1,5 @@
+variable,hs_domestico,hs_cuidado,edad_sel,cant_personashasta13
+hs_domestico,1,0.182,0.21,0.151
+hs_cuidado,0.182,1,-0.192,0.547
+edad_sel,0.21,-0.192,1,-0.273
+cant_personashasta13,0.151,0.547,-0.273,1

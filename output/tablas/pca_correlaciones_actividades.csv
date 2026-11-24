@@ -1,0 +1,6 @@
+variable,hs_remunerado,hs_domestico,hs_cuidado,hs_convivencia,hs_medios
+hs_remunerado,1,-0.39,-0.17,-0.28,-0.2
+hs_domestico,-0.39,1,0.18,-0.15,0.05
+hs_cuidado,-0.17,0.18,1,-0.04,-0.09
+hs_convivencia,-0.28,-0.15,-0.04,1,-0.06
+hs_medios,-0.2,0.05,-0.09,-0.06,1

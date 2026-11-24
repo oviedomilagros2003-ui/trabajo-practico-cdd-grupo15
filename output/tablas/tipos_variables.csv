@@ -1,0 +1,14 @@
+variable,tipo_r
+sexo_sel,numeric
+edad_sel,numeric
+nivel_educativo_sel,numeric
+tcs_grupo_domestico,numeric
+tcs_grupo_cuidado,numeric
+tcs_grupo_trabajoocupacion,numeric
+tcs_grupo_convivencia,numeric
+tcs_grupo_usodemedios,numeric
+cant_personashasta13,numeric
+dia_laborable,numeric
+t_domestico_pago,numeric
+condicion_actividad_agrupada,numeric
+wper,numeric
