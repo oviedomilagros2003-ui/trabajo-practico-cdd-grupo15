@@ -1,5 +1,5 @@
 # ============================================================================== 
-# Paleta de Colores y Tema Visual del Trabajo Práctico (Grupo 15) 
+# Paleta de Colores y Tema Visual del Trabajo Práctico Scripts 02 al 05
 # ============================================================================== 
  
 library(ggplot2) 
