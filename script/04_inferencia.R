@@ -25,7 +25,7 @@ source(file.path("utils", "limite_iqr.R"))
 input_dir  <- "input"
 out_tablas <- file.path("output", "tablas")
 dir.create(out_tablas, recursive = TRUE, showWarnings = FALSE)
-dir.create(file.path("output", "graficos"), recursive = TRUE, showWarnings = FALSE)   # NUEVO: ggsave no crea carpetas
+dir.create(file.path("output", "graficos"), recursive = TRUE, showWarnings = FALSE)  
 
 ruta_base <- file.path(input_dir, "enut_limpia.csv")
 if (!file.exists(ruta_base)) {
@@ -259,7 +259,7 @@ enut_serv_sin  <- enut_serv |> filter(hs_domestico <= umbral_dom)
 modelo_dom_sin <- lm(as.formula(paste("hs_domestico ~", rhs)), data = enut_serv_sin)
 write_csv(tabla_robusta(modelo_dom_sin, "Trabajo doméstico, sin atípicos"),
           file.path(out_tablas, "regresion_domestico_sin_outliers.csv"))
-# NUEVO: ajuste sin atípicos (R² usado en la presentación)
+# ajuste sin atípicos 
 write_csv(glance(modelo_dom_sin) |> select(r.squared, adj.r.squared, nobs),
           file.path(out_tablas, "regresion_domestico_sin_outliers_ajuste.csv"))
 
