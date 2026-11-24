@@ -1,0 +1,7 @@
+modelo,term,estimate,conf.low,conf.high
+Sin controles,educacion_4cat2. Secundario Completo,-0.57,-0.76,-0.38
+Sin controles,educacion_4cat3. Terciario/Univ. Incompleto,-1.56,-1.76,-1.36
+Sin controles,educacion_4cat4. Terciario/Univ. Completo,-1.13,-1.32,-0.93
+Con controles,educacion_4cat2. Secundario Completo,-0.12,-0.3,0.06
+Con controles,educacion_4cat3. Terciario/Univ. Incompleto,-0.57,-0.77,-0.37
+Con controles,educacion_4cat4. Terciario/Univ. Completo,-0.34,-0.53,-0.15

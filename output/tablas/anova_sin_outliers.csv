@@ -1,0 +1,5 @@
+resultado,con_atipicos,sin_atipicos
+n,6046,5973
+Welch F,92.394,96.634
+Kruskal-Wallis H,276.545,268.504
+Kruskal-Wallis epsilon cuadrado,0.046,0.045

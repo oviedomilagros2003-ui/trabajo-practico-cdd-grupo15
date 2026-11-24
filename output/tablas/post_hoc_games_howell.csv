@@ -1,7 +1,7 @@
-group1,group2,estimate,conf.low,conf.high,p.adj
-1. Hasta Sec. Incompleto,2. Secundario Completo,-0.566870701009762,-0.8173920431760582,-0.3163493588434659,3.883165022866564e-8
-1. Hasta Sec. Incompleto,3. Terciario/Univ. Incompleto,-1.5620279955382146,-1.8204303661533119,-1.3036256249231173,0
-1. Hasta Sec. Incompleto,4. Terciario/Univ. Completo,-1.12847709036651,-1.381227717079949,-0.875726463653071,0
-2. Secundario Completo,3. Terciario/Univ. Incompleto,-0.9951572945284526,-1.2441228124038821,-0.7461917766530232,0
-2. Secundario Completo,4. Terciario/Univ. Completo,-0.561606389356748,-0.8046983390784566,-0.31851443963503945,1.7296569621017e-8
-3. Terciario/Univ. Incompleto,4. Terciario/Univ. Completo,0.4335509051717046,0.18234265250441134,0.6847591578389978,5.6192039151747863e-5
+comparacion,group1,group2,estimate,conf.low,conf.high,p.adj
+2. Secundario Completo - 1. Hasta Sec. Incompleto,1. Hasta Sec. Incompleto,2. Secundario Completo,-0.566870701009762,-0.8173920431760582,-0.3163493588434659,3.883165022866564e-8
+3. Terciario/Univ. Incompleto - 1. Hasta Sec. Incompleto,1. Hasta Sec. Incompleto,3. Terciario/Univ. Incompleto,-1.5620279955382146,-1.8204303661533119,-1.3036256249231173,0
+4. Terciario/Univ. Completo - 1. Hasta Sec. Incompleto,1. Hasta Sec. Incompleto,4. Terciario/Univ. Completo,-1.12847709036651,-1.381227717079949,-0.875726463653071,0
+3. Terciario/Univ. Incompleto - 2. Secundario Completo,2. Secundario Completo,3. Terciario/Univ. Incompleto,-0.9951572945284526,-1.2441228124038821,-0.7461917766530232,0
+4. Terciario/Univ. Completo - 2. Secundario Completo,2. Secundario Completo,4. Terciario/Univ. Completo,-0.561606389356748,-0.8046983390784566,-0.31851443963503945,1.7296569621017e-8
+4. Terciario/Univ. Completo - 3. Terciario/Univ. Incompleto,3. Terciario/Univ. Incompleto,4. Terciario/Univ. Completo,0.4335509051717046,0.18234265250441134,0.6847591578389978,5.6192039151747863e-5
