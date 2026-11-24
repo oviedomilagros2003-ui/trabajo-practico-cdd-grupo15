@@ -17,7 +17,7 @@ library(sandwich)      # errores robustos HC1
 library(modelsummary)  # gráfico de coeficientes
 library(broom)         # tablas de resultados
 
-source(file.path("utils", "tema_tp.R"))
+source(file.path("utils", "tema_scripts.R"))
 source(file.path("utils", "guardar_grafico.R"))
 source(file.path("utils", "declarar_tipos.R"))
 source(file.path("utils", "limite_iqr.R"))
