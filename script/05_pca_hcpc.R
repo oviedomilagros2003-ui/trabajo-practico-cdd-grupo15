@@ -5,8 +5,7 @@
 # Salidas : tablas en output/tablas/, gráficos en output/graficos/,
 #           input/enut_con_clusters.csv
 # PCA: 5 actividades activas; edad y niños (numéricas) y educación y servicio pago
-#      (categóricas) suplementarias. Estandarizado, sin ponderar. Es descriptivo.
-# ==============================================================================
+#      (categóricas) suplementarias. 
 
 options(scipen = 999)
 set.seed(2026)
@@ -23,6 +22,7 @@ source(file.path("utils", "limite_iqr.R"))
 input_dir  <- "input"
 out_tablas <- file.path("output", "tablas")
 dir.create(out_tablas, recursive = TRUE, showWarnings = FALSE)
+dir.create(file.path("output", "graficos"), recursive = TRUE, showWarnings = FALSE)   # CAMBIO: ggsave no crea carpetas
 
 ruta_base <- file.path(input_dir, "enut_limpia.csv")
 if (!file.exists(ruta_base)) {
@@ -49,10 +49,16 @@ df_pca <- enut_serv |>
 
 stopifnot(!anyNA(df_pca))
 
-# Correlaciones entre actividades y % de ceros (el PCA resume variables relacionadas)
+# Correlaciones entre actividades (el PCA resume variables relacionadas)
 cor_act <- round(cor(df_pca[, vars_act]), 2)
 write_csv(as.data.frame(cor_act) |> rownames_to_column("variable"),
           file.path(out_tablas, "pca_correlaciones_actividades.csv"))
+
+# % de ceros de cada actividad (un 0 es "no se realizó ese día")
+ceros_act <- tibble(variable = vars_act,
+                    pct_ceros = round(100 * sapply(df_pca[, vars_act], function(x) mean(x == 0)), 1))
+write_csv(ceros_act, file.path(out_tablas, "pca_ceros_actividades.csv"))
+ceros_act
 
 # ------------------------------------------------------------------------------
 # 2. Sensibilidad: sacar una actividad por vez, y prueba de incluir wper
@@ -89,7 +95,7 @@ res_pca <- FactoMineR::PCA(
   graph      = FALSE
 )
 
-# El signo de un componente es arbitrario. Se invierte la Dim 1 para que crezca con el
+# Se invierte la Dim 1 para que crezca con el
 # trabajo remunerado. Se aplica en todas las tablas y gráficos.
 res_pca$var$coord[, "Dim.1"]        <- -res_pca$var$coord[, "Dim.1"]
 res_pca$var$cor[, "Dim.1"]          <- -res_pca$var$cor[, "Dim.1"]
@@ -150,7 +156,7 @@ horas_por_grupo <- bind_rows(
             hs_domestico = round(mean(hs_domestico), 1), .groups = "drop")
 write_csv(horas_por_grupo, file.path(out_tablas, "pca_horas_por_grupo.csv"))
 
-# 3.5. Gráficos del PCA (en castellano, con fuente)
+# 3.5. Gráficos del PCA 
 g_scree <- factoextra::fviz_screeplot(res_pca, addlabels = TRUE, barfill = col_hist, barcolor = col_hist) +
   labs(title = "Varianza explicada por componente",
        subtitle = "PCA de 5 actividades de uso del tiempo (mujeres de 18 a 64 años).",
@@ -166,11 +172,23 @@ g_circulo <- factoextra::fviz_pca_var(res_pca, repel = TRUE, col.var = col_con, 
   theme_tp()
 guardar_grafico(g_circulo, "pca_circulo_correlacion.png", ancho = 18, alto = 16)
 
+# Mapa de puntajes medios por grupo (educación y servicio pago) en el plano PC1-PC2
+g_grupos <- ggplot(puntajes_grupos, aes(x = dim1, y = dim2, label = grupo)) +
+  geom_hline(yintercept = 0, linetype = "dashed", color = "grey60") +
+  geom_vline(xintercept = 0, linetype = "dashed", color = "grey60") +
+  geom_point(color = col_con, size = 3) +
+  geom_text(vjust = -0.9, size = 3.6, color = col_texto) +
+  labs(title = "Puntaje medio de cada grupo en los dos primeros componentes",
+       subtitle = "Eje 1: trabajo remunerado contra no remunerado. Eje 2: convivencia contra trabajo.",
+       x = "Componente 1", y = "Componente 2", caption = fuente_enut) +
+  theme_tp()
+guardar_grafico(g_grupos, "pca_puntajes_grupos.png", ancho = 20, alto = 14)
+
 # ------------------------------------------------------------------------------
 # 4. Clustering jerárquico sobre componentes principales (HCPC)
 # ------------------------------------------------------------------------------
 
-# 4.1. Corte automático, solo para ver la ganancia de inercia y justificar k
+# 4.1. Ganancia de inercia y justificacion de k
 hcpc_auto <- FactoMineR::HCPC(res_pca, nb.clust = -1, consol = FALSE, graph = FALSE)
 
 ganancia <- tibble(
@@ -190,7 +208,9 @@ g_inercia <- ggplot(ganancia, aes(x = n_grupos, y = ganancia_inercia)) +
   theme_tp()
 guardar_grafico(g_inercia, "hcpc_ganancia_inercia.png", ancho = 18, alto = 12)
 
-# 4.2. Clustering final con k elegido
+# 4.2. Clustering final con k elegido.
+# La ganancia de inercia no apoya k = 4 con claridad (se aplana recién después del 5.º grupo).
+# Se elige k = 4 por interpretabilidad
 k_clusters <- 4
 res_hcpc <- FactoMineR::HCPC(res_pca, nb.clust = k_clusters, consol = TRUE, graph = FALSE)
 
@@ -207,7 +227,7 @@ perfil_clusters <- enut_serv |>
 write_csv(perfil_clusters, file.path(out_tablas, "perfil_clusters_hcpc.csv"))
 perfil_clusters
 
-# Composición por educación y servicio pago (no entran al clustering; sigue siendo descriptivo)
+# Composición por educación y servicio pago 
 composicion_clusters <- enut_serv |>
   group_by(cluster_hcpc) |>
   summarise(
@@ -227,44 +247,46 @@ g_cluster <- factoextra::fviz_cluster(res_hcpc, geom = "point", show.clust.cent 
        caption = fuente_enut)
 guardar_grafico(g_cluster, "hcpc_clusters.png", ancho = 20, alto = 15)
 
+# 4.3. Perfiles con k alternativos (anexo), para respaldar la elección de k
+perfiles_k <- bind_rows(lapply(3:5, function(k) {
+  h <- FactoMineR::HCPC(res_pca, nb.clust = k, consol = TRUE, graph = FALSE)
+  enut_serv |>
+    mutate(grupo = h$data.clust$clust) |>
+    group_by(grupo) |>
+    summarise(n = n(),
+              across(c(hs_remunerado, hs_domestico, hs_cuidado, hs_convivencia, hs_medios),
+                     ~ round(mean(.x), 2)),
+              .groups = "drop") |>
+    mutate(k = k, .before = 1)
+}))
+write_csv(perfiles_k, file.path(out_tablas, "hcpc_perfiles_k_alternativos.csv"))
+
+# Caracterización de cada grupo por v-test (|v| > 2: la variable lo distingue del promedio)
+vtest_clusters <- bind_rows(
+  lapply(Filter(Negate(is.null), res_hcpc$desc.var$quanti),
+         function(m) as.data.frame(m) |> rownames_to_column("variable")),
+  .id = "cluster")
+write_csv(vtest_clusters, file.path(out_tablas, "hcpc_vtest_variables.csv"))
+
 write_csv(enut_serv, file.path(input_dir, "enut_con_clusters.csv"))
 
 # ------------------------------------------------------------------------------
-# 5. Robustez: resultados con y sin los casos atípicos de trabajo doméstico
+# 5. Robustez del PCA: resultados con y sin los casos atípicos de trabajo doméstico
 # ------------------------------------------------------------------------------
 
 pca_act     <- prcomp(select(enut_serv,     all_of(vars_act)), center = TRUE, scale. = TRUE)
 pca_act_sin <- prcomp(select(enut_serv_sin, all_of(vars_act)), center = TRUE, scale. = TRUE)
 
-kw_con <- kruskal.test(hs_domestico ~ educacion_4cat, data = enut_serv)
-kw_sin <- kruskal.test(hs_domestico ~ educacion_4cat, data = enut_serv_sin)
-
-rhs <- "educacion_4cat + servicio_pago + cant_personashasta13 + estado_laboral + dia_tipo + edad_sel"
-modelo_con <- lm(as.formula(paste("hs_domestico ~", rhs)), data = enut_serv)
-modelo_sin <- lm(as.formula(paste("hs_domestico ~", rhs)), data = enut_serv_sin)
-
 robustez <- tibble(
-  resultado = c(
-    "Media trabajo doméstico (hs)",
-    "Regresión: servicio pago (hs)",
-    "Kruskal-Wallis: epsilon cuadrado",
-    "PCA (5 actividades): % varianza PC1",
-    "PCA (5 actividades): % varianza PC2"
-  ),
-  con_atipicos = c(
-    mean(enut_serv$hs_domestico),
-    unname(coef(modelo_con)["servicio_pagoCon servicio pago"]),
-    unname(kw_con$statistic) / (nrow(enut_serv) - 1),
-    100 * summary(pca_act)$importance[2, 1],
-    100 * summary(pca_act)$importance[2, 2]
-  ),
-  sin_atipicos = c(
-    mean(enut_serv_sin$hs_domestico),
-    unname(coef(modelo_sin)["servicio_pagoCon servicio pago"]),
-    unname(kw_sin$statistic) / (nrow(enut_serv_sin) - 1),
-    100 * summary(pca_act_sin)$importance[2, 1],
-    100 * summary(pca_act_sin)$importance[2, 2]
-  )
+  resultado = c("Media trabajo doméstico (hs)",
+                "PCA (5 actividades): % varianza PC1",
+                "PCA (5 actividades): % varianza PC2"),
+  con_atipicos = c(mean(enut_serv$hs_domestico),
+                   100 * summary(pca_act)$importance[2, 1],
+                   100 * summary(pca_act)$importance[2, 2]),
+  sin_atipicos = c(mean(enut_serv_sin$hs_domestico),
+                   100 * summary(pca_act_sin)$importance[2, 1],
+                   100 * summary(pca_act_sin)$importance[2, 2])
 ) |>
   mutate(across(where(is.numeric), ~ round(.x, 3)))
 
