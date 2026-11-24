@@ -1,5 +1,4 @@
 # Tendencia loess de hs_total según edad_sel, solo entre los percentiles 2,5 y 97,5 de edad
-# Requiere que el data frame tenga las columnas hs_total y edad_sel
 library(dplyr)
 library(tibble)
 
