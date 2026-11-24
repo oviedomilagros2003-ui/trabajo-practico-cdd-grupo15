@@ -22,7 +22,7 @@ source(file.path("utils", "limite_iqr.R"))
 input_dir  <- "input"
 out_tablas <- file.path("output", "tablas")
 dir.create(out_tablas, recursive = TRUE, showWarnings = FALSE)
-dir.create(file.path("output", "graficos"), recursive = TRUE, showWarnings = FALSE)   # CAMBIO: ggsave no crea carpetas
+dir.create(file.path("output", "graficos"), recursive = TRUE, showWarnings = FALSE)   
 
 ruta_base <- file.path(input_dir, "enut_limpia.csv")
 if (!file.exists(ruta_base)) {
