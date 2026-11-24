@@ -9,7 +9,7 @@ options(scipen = 999)
 library(tidyverse)
 library(skimr)
 
-source(file.path("utils", "tema_tp.R"))
+source(file.path("utils", "tema_scripts.R"))
 source(file.path("utils", "guardar_grafico.R"))
 source(file.path("utils", "cuantil_pond.R"))
 
