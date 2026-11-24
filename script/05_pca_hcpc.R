@@ -5,7 +5,7 @@
 # Salidas : tablas en output/tablas/, gráficos en output/graficos/,
 #           input/enut_con_clusters.csv
 # PCA: 5 actividades activas; edad y niños (numéricas) y educación y servicio pago
-#      (categóricas) suplementarias. 
+#      (categóricas) suplementarias.
 
 options(scipen = 999)
 set.seed(2026)
@@ -14,7 +14,7 @@ library(tidyverse)
 library(FactoMineR)    # PCA y HCPC
 library(factoextra)    # gráficos del PCA y de los clusters
 
-source(file.path("utils", "tema_tp.R"))
+source(file.path("utils", "tema_scripts.R"))
 source(file.path("utils", "guardar_grafico.R"))
 source(file.path("utils", "declarar_tipos.R"))
 source(file.path("utils", "limite_iqr.R"))
@@ -22,7 +22,7 @@ source(file.path("utils", "limite_iqr.R"))
 input_dir  <- "input"
 out_tablas <- file.path("output", "tablas")
 dir.create(out_tablas, recursive = TRUE, showWarnings = FALSE)
-dir.create(file.path("output", "graficos"), recursive = TRUE, showWarnings = FALSE)   
+dir.create(file.path("output", "graficos"), recursive = TRUE, showWarnings = FALSE)
 
 ruta_base <- file.path(input_dir, "enut_limpia.csv")
 if (!file.exists(ruta_base)) {
@@ -105,6 +105,8 @@ res_pca$quanti.sup$cor[, "Dim.1"]   <- -res_pca$quanti.sup$cor[, "Dim.1"]
 res_pca$quali.sup$coord[, "Dim.1"]  <- -res_pca$quali.sup$coord[, "Dim.1"]
 res_pca$quali.sup$v.test[, "Dim.1"] <- -res_pca$quali.sup$v.test[, "Dim.1"]
 
+stopifnot(res_pca$var$coord["hs_remunerado", 1] > 0)
+
 # 3.1. Autovalores y varianza explicada
 autovalores <- as.data.frame(res_pca$eig) |>
   rownames_to_column("componente") |>
@@ -156,7 +158,24 @@ horas_por_grupo <- bind_rows(
             hs_domestico = round(mean(hs_domestico), 1), .groups = "drop")
 write_csv(horas_por_grupo, file.path(out_tablas, "pca_horas_por_grupo.csv"))
 
-# 3.5. Gráficos del PCA 
+# Etiquetas en castellano y porcentajes con coma para gráficos
+nombres_es <- c(
+  hs_remunerado        = "Trabajo remunerado",
+  hs_domestico         = "Trabajo doméstico",
+  hs_cuidado           = "Cuidado directo",
+  hs_convivencia       = "Convivencia",
+  hs_medios            = "Uso de medios",
+  edad_sel             = "Edad",
+  cant_personashasta13 = "Niños de 0 a 13"
+)
+
+res_g <- res_pca
+rownames(res_g$var$coord)        <- nombres_es[rownames(res_pca$var$coord)]
+rownames(res_g$quanti.sup$coord) <- nombres_es[rownames(res_pca$quanti.sup$coord)]
+
+pct <- function(i) format(round(res_pca$eig[i, 2], 1), decimal.mark = ",")
+
+# 3.5. Gráficos del PCA
 g_scree <- factoextra::fviz_screeplot(res_pca, addlabels = TRUE, barfill = col_hist, barcolor = col_hist) +
   labs(title = "Varianza explicada por componente",
        subtitle = "PCA de 5 actividades de uso del tiempo (mujeres de 18 a 64 años).",
@@ -165,10 +184,14 @@ g_scree <- factoextra::fviz_screeplot(res_pca, addlabels = TRUE, barfill = col_h
   theme_tp()
 guardar_grafico(g_scree, "pca_screeplot.png", ancho = 18, alto = 12)
 
-g_circulo <- factoextra::fviz_pca_var(res_pca, repel = TRUE, col.var = col_con, col.quanti.sup = "#4575b4") +
-  labs(title = "Círculo de correlaciones: actividades de uso del tiempo",
-       subtitle = "Rojo: actividades activas. Azul: edad y niños, suplementarias. Eje 1 invertido: crece con el trabajo remunerado.",
-       caption = fuente_enut) +
+g_circulo <- factoextra::fviz_pca_var(res_g, repel = TRUE, col.var = col_con, col.quanti.sup = "#4575b4") +
+  labs(
+    title    = "Círculo de correlaciones: actividades de uso del tiempo",
+    subtitle = "Bordó: actividades activas. Azul: edad y niños, suplementarias. Eje 1 invertido: crece con el trabajo remunerado.",
+    x        = paste0("Componente 1 (", pct(1), " %)"),
+    y        = paste0("Componente 2 (", pct(2), " %)"),
+    caption  = fuente_enut
+  ) +
   theme_tp()
 guardar_grafico(g_circulo, "pca_circulo_correlacion.png", ancho = 18, alto = 16)
 
@@ -226,8 +249,9 @@ perfil_clusters <- enut_serv |>
   )
 write_csv(perfil_clusters, file.path(out_tablas, "perfil_clusters_hcpc.csv"))
 perfil_clusters
+perfil_clusters[, c("cluster_hcpc", "n")]
 
-# Composición por educación y servicio pago 
+# Composición por educación y servicio pago
 composicion_clusters <- enut_serv |>
   group_by(cluster_hcpc) |>
   summarise(
@@ -242,9 +266,16 @@ composicion_clusters
 
 g_cluster <- factoextra::fviz_cluster(res_hcpc, geom = "point", show.clust.cent = TRUE,
                                       ggtheme = theme_tp()) +
-  labs(title = "Grupos de uso del tiempo (HCPC) en el plano de los dos primeros componentes",
-       subtitle = "Mujeres de 18 a 64 años. Cada punto es una mujer.",
-       caption = fuente_enut)
+  labs(
+    title    = "Grupos de uso del tiempo (HCPC) en el plano de los dos primeros componentes",
+    subtitle = "Mujeres de 18 a 64 años. Cada punto es una mujer.",
+    x        = paste0("Componente 1 (", pct(1), " %)"),
+    y        = paste0("Componente 2 (", pct(2), " %)"),
+    color    = "Grupo",
+    fill     = "Grupo",
+    shape    = "Grupo",
+    caption  = fuente_enut
+  )
 guardar_grafico(g_cluster, "hcpc_clusters.png", ancho = 20, alto = 15)
 
 # 4.3. Perfiles con k alternativos (anexo), para respaldar la elección de k
