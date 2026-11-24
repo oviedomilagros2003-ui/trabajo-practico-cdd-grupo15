@@ -9,7 +9,7 @@
 options(scipen = 999)
 library(tidyverse)
 
-source(file.path("utils", "tema_tp.R"))
+source(file.path("utils", "tema_scripts.R"))
 source(file.path("utils", "guardar_grafico.R"))
 source(file.path("utils", "declarar_tipos.R"))
 source(file.path("utils", "limite_iqr.R"))
