@@ -5,8 +5,6 @@
 # Salidas : tablas en output/tablas/ y gráficos en output/graficos/
 # Métodos : ANOVA / Welch / Games-Howell / Kruskal-Wallis, Chi-cuadrado, regresión MCO (HC1)
 #           y modelos de cuidado directo (completo, con niños, dos partes)
-# Todos los resultados son asociaciones, no efectos causales. Sin ponderar.
-# ==============================================================================
 
 options(scipen = 999)
 set.seed(2026)
@@ -27,6 +25,7 @@ source(file.path("utils", "limite_iqr.R"))
 input_dir  <- "input"
 out_tablas <- file.path("output", "tablas")
 dir.create(out_tablas, recursive = TRUE, showWarnings = FALSE)
+dir.create(file.path("output", "graficos"), recursive = TRUE, showWarnings = FALSE)   # NUEVO: ggsave no crea carpetas
 
 ruta_base <- file.path(input_dir, "enut_limpia.csv")
 if (!file.exists(ruta_base)) {
@@ -35,6 +34,10 @@ if (!file.exists(ruta_base)) {
 
 enut_reg  <- read_csv(ruta_base, show_col_types = FALSE) |> declarar_tipos()   # 6.046
 enut_serv <- enut_reg |> filter(!is.na(servicio_pago))                         # 6.042
+
+# Umbral de atípicos de trabajo doméstico (regla del IQR). Se define sobre las 6.042,
+# que es donde se identificaron los 73 casos.                                
+umbral_dom <- limite_iqr(enut_serv$hs_domestico)
 
 # ==============================================================================
 # 1. ANOVA, Welch, Games-Howell y Kruskal-Wallis: trabajo doméstico según educación
@@ -76,8 +79,10 @@ levene   # Levene rechaza varianzas iguales: corresponde Welch y Games-Howell
 # 1.4. Welch (no supone varianzas iguales) y post-hoc Games-Howell
 welch <- oneway.test(hs_domestico ~ educacion_4cat, data = enut_reg)
 
+# En rstatix, estimate = media del group2 - media del group1. La columna "comparacion"                       
 gh <- rstatix::games_howell_test(enut_reg, hs_domestico ~ educacion_4cat) |>
-  select(group1, group2, estimate, conf.low, conf.high, p.adj)
+  mutate(comparacion = paste(group2, "-", group1)) |>
+  select(comparacion, group1, group2, estimate, conf.low, conf.high, p.adj)
 write_csv(gh, file.path(out_tablas, "post_hoc_games_howell.csv"))
 gh
 
@@ -103,7 +108,23 @@ anova_resultados <- tibble(
 write_csv(anova_resultados, file.path(out_tablas, "anova_resultados.csv"))
 anova_resultados
 
-# 1.6. Composición de cada nivel educativo (la brecha del terciario incompleto es en parte composición)
+# 1.5b. Robustez, los mismos tests sin los casos atípicos de trabajo doméstico
+enut_reg_sin <- enut_reg |> filter(hs_domestico <= umbral_dom)
+
+welch_sin <- oneway.test(hs_domestico ~ educacion_4cat, data = enut_reg_sin)
+kw_sin    <- kruskal.test(hs_domestico ~ educacion_4cat, data = enut_reg_sin)
+eps2_sin  <- unname(kw_sin$statistic) / (nrow(enut_reg_sin) - 1)
+
+anova_sin_outliers <- tibble(
+  resultado = c("n", "Welch F", "Kruskal-Wallis H", "Kruskal-Wallis epsilon cuadrado"),
+  con_atipicos = c(nrow(enut_reg), unname(welch$statistic), unname(kw$statistic), eps2),
+  sin_atipicos = c(nrow(enut_reg_sin), unname(welch_sin$statistic), unname(kw_sin$statistic), eps2_sin)
+) |>
+  mutate(across(where(is.numeric), ~ round(.x, 3)))
+write_csv(anova_sin_outliers, file.path(out_tablas, "anova_sin_outliers.csv"))
+anova_sin_outliers
+
+# 1.6. Composición de cada nivel educativo 
 composicion <- enut_reg |>
   group_by(educacion_4cat) |>
   summarise(
@@ -175,7 +196,7 @@ rhs <- "educacion_4cat + servicio_pago + cant_personashasta13 + estado_laboral +
 tabla_robusta <- function(modelo, nombre) {
   broom::tidy(lmtest::coeftest(modelo, vcov = sandwich::vcovHC(modelo, type = "HC1")),
               conf.int = TRUE) |>
-    mutate(modelo = nombre, .before = 1)
+    mutate(modelo = nombre, minutos_por_dia = round(estimate * 60), .before = 1)
 }
 
 modelo_dom <- lm(as.formula(paste("hs_domestico ~", rhs)), data = enut_serv)
@@ -193,7 +214,9 @@ ajuste_dom <- tibble(
 write_csv(ajuste_dom, file.path(out_tablas, "regresion_domestico_ajuste.csv"))
 
 # Supuestos: multicolinealidad (GVIF ajustado), heterocedasticidad (Breusch-Pagan), forma funcional (RESET)
+# La 4ª columna es GVIF^(1/(2*Df)), el valor comparable entre variables (máximo 1,33).
 vif_dom <- as.data.frame(car::vif(modelo_dom)) |> rownames_to_column("variable")
+names(vif_dom)[4] <- "gvif_ajustado"
 write_csv(vif_dom, file.path(out_tablas, "regresion_domestico_vif.csv"))
 
 bp    <- lmtest::bptest(modelo_dom)
@@ -232,14 +255,29 @@ g_coef <- modelsummary::modelplot(modelo_dom, vcov = "HC1", coef_omit = "Interce
 guardar_grafico(g_coef, "modelplot_coeficientes.png", ancho = 22, alto = 13)
 
 # Robustez: la misma regresión sin los casos atípicos de trabajo doméstico
-enut_serv_sin  <- enut_serv |> filter(hs_domestico <= limite_iqr(enut_serv$hs_domestico))
+enut_serv_sin  <- enut_serv |> filter(hs_domestico <= umbral_dom)
 modelo_dom_sin <- lm(as.formula(paste("hs_domestico ~", rhs)), data = enut_serv_sin)
 write_csv(tabla_robusta(modelo_dom_sin, "Trabajo doméstico, sin atípicos"),
           file.path(out_tablas, "regresion_domestico_sin_outliers.csv"))
+# NUEVO: ajuste sin atípicos (R² usado en la presentación)
+write_csv(glance(modelo_dom_sin) |> select(r.squared, adj.r.squared, nobs),
+          file.path(out_tablas, "regresion_domestico_sin_outliers_ajuste.csv"))
 
-# ==============================================================================
-# 4. Cuidado directo: 61 % de ceros, por eso se muestran tres versiones del modelo
-# ==============================================================================
+# Brecha educativa sin controles y con controles 
+modelo_bruto <- lm(hs_domestico ~ educacion_4cat, data = enut_serv)
+comparacion_brecha <- bind_rows(
+  tabla_robusta(modelo_bruto, "Sin controles"),
+  tabla_robusta(modelo_dom,   "Con controles")
+) |>
+  filter(str_starts(term, "educacion_4cat")) |>
+  select(modelo, term, estimate, conf.low, conf.high) |>
+  mutate(across(where(is.numeric), ~ round(.x, 2)))
+write_csv(comparacion_brecha, file.path(out_tablas, "brecha_educacion_sin_y_con_controles.csv"))
+comparacion_brecha
+
+# ================================================================
+# 4. Cuidado directo: 61 % de ceros 
+# ================================================================
 
 # 4.1. Modelo completo (mismas variables)
 modelo_cui <- lm(as.formula(paste("hs_cuidado ~", rhs)), data = enut_serv)
