@@ -91,7 +91,7 @@ Todos los pasos se hacen en celdas de Colab; los scripts no instalan paquetes ni
 
    ```r
    source("script/01_limpieza_eda.R")
-   source("script/02_eda.R")
+   source("script/02_exploratorio.R")
    source("script/03_faltantes_outliers.R")
    source("script/04_inferencia.R")
    source("script/05_pca_clustering.R")
