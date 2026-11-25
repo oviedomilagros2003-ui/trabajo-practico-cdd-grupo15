@@ -94,8 +94,8 @@ Todos los pasos se hacen en celdas de Colab; los scripts no instalan paquetes ni
    source("script/02_exploratorio.R")
    source("script/03_faltantes_outliers.R")
    source("script/04_inferencia.R")
-   source("script/05_pca_clustering.R")
-   source("script/06_graficos.R")
+   source("script/05_pca_hcpc.R")
+   source("script/06_visualizacion.R")
    ```
 
 Cada script lee sus entradas desde archivos guardados, así que puede correrse por separado en una sesión nueva. Se usa `set.seed(2026)` para que los resultados sean reproducibles. Los archivos intermedios y de resultados son CSV (UTF-8, separador coma).
