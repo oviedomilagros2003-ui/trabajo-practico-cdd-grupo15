@@ -11,8 +11,16 @@ col_grid   <- "#E7DEDB"
 col_texto  <- "#2E2E2E" 
 col_hist   <- "#B0245A"
 
+# Definición explícita de niveles educativos (había quedado en otro archivo de utils al separar temas)
+  "Hasta Sec. Incompleto",
+  "Secundario Completo",
+  "Terciario/Univ. Incompleto",
+  "Terciario/Univ. Completo"
+)
+fuente_enut <- "Fuente: elaboracion propia en base a la Encuesta Nacional de Uso del Tiempo 2021 (INDEC)"
+
 cols_educ  <- c("#7B1650", "#C0566F", "#E8A1C4", "#D81B60") 
-cols_dias  <- c("#9B1048", "#E0245E") 
+cols_dias  <- c("#9B1048", "#E0245E")
  
 theme_tp <- function(base_size = 12, base_family = "sans") { 
   theme_minimal(base_size = base_size, base_family = base_family) + 
